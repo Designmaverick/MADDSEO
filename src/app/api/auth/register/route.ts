@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/password';
+import { getPrisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -14,6 +14,10 @@ const payloadSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const prisma = await getPrisma();
+  if (!prisma) {
+    return NextResponse.json({ error: 'Build phase.' }, { status: 503 });
+  }
   const json = await req.json().catch(() => null);
   const parsed = payloadSchema.safeParse(json);
   if (!parsed.success) {

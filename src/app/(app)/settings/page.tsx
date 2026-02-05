@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/db';
 import SignOutButton from './SignOutButton';
 
 export const dynamic = 'force-dynamic';
@@ -10,11 +10,13 @@ export const fetchCache = 'force-no-store';
 export default async function SettingsPage() {
   const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
   const session = isBuild ? null : await getServerSession(authOptions);
-  const settings = isBuild
-    ? null
-    : await prisma.settings.findUnique({
-        where: { userId: session?.user.id }
-      });
+  const prisma = await getPrisma();
+  const settings =
+    isBuild || !prisma
+      ? null
+      : await prisma.settings.findUnique({
+          where: { userId: session?.user.id }
+        });
 
   return (
     <div className="space-y-6">

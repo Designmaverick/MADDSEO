@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
+import { getPrisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -24,11 +25,10 @@ function normalizeDomain(input: string) {
 }
 
 export async function GET() {
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  const prisma = await getPrisma();
+  if (!prisma) {
     return NextResponse.json({ error: 'Build phase.' }, { status: 503 });
   }
-
-  const { prisma } = await import('@/lib/prisma');
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
@@ -45,11 +45,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  if (process.env.NEXT_PHASE === 'phase-production-build') {
+  const prisma = await getPrisma();
+  if (!prisma) {
     return NextResponse.json({ error: 'Build phase.' }, { status: 503 });
   }
-
-  const { prisma } = await import('@/lib/prisma');
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });

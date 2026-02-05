@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import Link from 'next/link';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { getPrisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -12,13 +12,15 @@ export default async function DashboardPage() {
   const session = isBuild ? null : await getServerSession(authOptions);
   const userId = session?.user.id || '';
 
-  const [projectsCount, auditsCount, reportsCount] = isBuild
-    ? [0, 0, 0]
-    : await Promise.all([
-        prisma.project.count({ where: { ownerId: userId } }),
-        prisma.audit.count({ where: { runnerId: userId } }),
-        prisma.report.count({ where: { userId } })
-      ]);
+  const prisma = await getPrisma();
+  const [projectsCount, auditsCount, reportsCount] =
+    isBuild || !prisma
+      ? [0, 0, 0]
+      : await Promise.all([
+          prisma.project.count({ where: { ownerId: userId } }),
+          prisma.audit.count({ where: { runnerId: userId } }),
+          prisma.report.count({ where: { userId } })
+        ]);
 
   const planSummary = session?.user.isPro
     ? ['Unlimited domains', 'Unlimited audits', '100+ pages per crawl']
