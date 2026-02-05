@@ -1,0 +1,262 @@
+// Prisma schema for SEO Audit Platform (Phase 1)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum PlanType {
+  FREE
+  PRO
+}
+
+enum AuditStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum IssueCategory {
+  ON_PAGE
+  TECHNICAL
+  OFF_PAGE
+  PERFORMANCE
+}
+
+enum IssueSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReportType {
+  PDF
+  DOCX
+}
+
+enum ReportStatus {
+  PENDING
+  GENERATING
+  READY
+  FAILED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          Role      @default(USER)
+  status        UserStatus @default(ACTIVE)
+  isPro         Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  projects      Project[]
+  audits        Audit[]   @relation("AuditRunner")
+  reports       Report[]
+  settings      Settings?
+  invitesCreated InviteToken[] @relation("InvitesCreated")
+  invitesUsed   InviteToken[] @relation("InvitesUsed")
+
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  name      String
+  domain    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audits    Audit[]
+
+  @@unique([ownerId, domain])
+}
+
+model Audit {
+  id              String      @id @default(cuid())
+  projectId       String
+  project         Project     @relation(fields: [projectId], references: [id])
+  runnerId        String
+  runner          User        @relation("AuditRunner", fields: [runnerId], references: [id])
+  status          AuditStatus @default(PENDING)
+  planAtRun       PlanType    @default(FREE)
+  planLimitPages  Int?
+  engineVersion   String      @default("v1")
+  startedAt       DateTime?
+  completedAt     DateTime?
+  scoreOverall    Int?
+  scoreTechnical  Int?
+  scoreOnPage     Int?
+  scoreOffPage    Int?
+  scorePerformance Int?
+  pagesCrawled    Int         @default(0)
+  issuesFound     Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  pages           Page[]
+  issues          Issue[]
+  reports         Report[]
+}
+
+model Page {
+  id                 String   @id @default(cuid())
+  auditId            String
+  audit              Audit    @relation(fields: [auditId], references: [id])
+  url                String
+  statusCode         Int?
+  title              String?
+  metaDescription    String?
+  canonical          String?
+  ogTitle            String?
+  ogDescription      String?
+  ogImage            String?
+  h1s                String[] @default([])
+  h2s                String[] @default([])
+  h3s                String[] @default([])
+  h4s                String[] @default([])
+  h5s                String[] @default([])
+  h6s                String[] @default([])
+  schemaTypes        String[] @default([])
+  internalLinks      Int      @default(0)
+  externalLinks      Int      @default(0)
+  brokenLinks        Int      @default(0)
+  imagesTotal        Int      @default(0)
+  imagesMissingAlt   Int      @default(0)
+  indexable          Boolean?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  issues             Issue[]
+
+  @@unique([auditId, url])
+}
+
+model Issue {
+  id          String        @id @default(cuid())
+  auditId     String
+  audit       Audit         @relation(fields: [auditId], references: [id])
+  pageId      String?
+  page        Page?         @relation(fields: [pageId], references: [id])
+  ruleId      String
+  category    IssueCategory
+  severity    IssueSeverity
+  title       String
+  description String
+  fix         String
+  data        Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([auditId])
+  @@index([pageId])
+  @@index([severity])
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  auditId    String
+  audit      Audit        @relation(fields: [auditId], references: [id])
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  type       ReportType
+  status     ReportStatus @default(PENDING)
+  fileUrl    String?
+  whiteLabel Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([auditId])
+  @@index([userId])
+}
+
+model Settings {
+  id                 String  @id @default(cuid())
+  userId             String  @unique
+  user               User    @relation(fields: [userId], references: [id])
+  companyName        String?
+  companyUrl         String?
+  logoUrl            String?
+  whiteLabelDefault  Boolean @default(false)
+}
+
+model SystemSettings {
+  id           String  @id @default(cuid())
+  allowSignup  Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model InviteToken {
+  id           String   @id @default(cuid())
+  token        String   @unique
+  email        String?
+  role         Role     @default(USER)
+  isPro        Boolean  @default(false)
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdById  String
+  createdBy    User     @relation("InvitesCreated", fields: [createdById], references: [id])
+  usedById     String?
+  usedBy       User?    @relation("InvitesUsed", fields: [usedById], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
