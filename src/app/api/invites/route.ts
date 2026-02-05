@@ -5,6 +5,9 @@ import { randomBytes } from 'crypto';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const createSchema = z.object({
   email: z.string().email().optional(),
   isPro: z.boolean().optional().default(false),

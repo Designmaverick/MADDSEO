@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/password';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const payloadSchema = z.object({
   name: z.string().min(2).max(120).optional(),
   email: z.string().email(),
