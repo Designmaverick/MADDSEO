@@ -2,11 +2,18 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const fetchCache = 'force-no-store';
+
 export default async function TechnicalPage() {
-  const session = await getServerSession(authOptions);
-  const count = await prisma.issue.count({
-    where: { audit: { runnerId: session?.user.id }, category: 'TECHNICAL' }
-  });
+  const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+  const session = isBuild ? null : await getServerSession(authOptions);
+  const count = isBuild
+    ? 0
+    : await prisma.issue.count({
+        where: { audit: { runnerId: session?.user.id }, category: 'TECHNICAL' }
+      });
 
   return (
     <div className="space-y-6">

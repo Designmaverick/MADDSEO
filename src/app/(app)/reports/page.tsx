@@ -2,13 +2,20 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const fetchCache = 'force-no-store';
+
 export default async function ReportsPage() {
-  const session = await getServerSession(authOptions);
-  const reports = await prisma.report.findMany({
-    where: { userId: session?.user.id },
-    include: { audit: { include: { project: true } } },
-    orderBy: { createdAt: 'desc' }
-  });
+  const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+  const session = isBuild ? null : await getServerSession(authOptions);
+  const reports = isBuild
+    ? []
+    : await prisma.report.findMany({
+        where: { userId: session?.user.id },
+        include: { audit: { include: { project: true } } },
+        orderBy: { createdAt: 'desc' }
+      });
 
   return (
     <div className="space-y-6">

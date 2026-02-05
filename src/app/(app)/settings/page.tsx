@@ -3,11 +3,18 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import SignOutButton from './SignOutButton';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const fetchCache = 'force-no-store';
+
 export default async function SettingsPage() {
-  const session = await getServerSession(authOptions);
-  const settings = await prisma.settings.findUnique({
-    where: { userId: session?.user.id }
-  });
+  const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+  const session = isBuild ? null : await getServerSession(authOptions);
+  const settings = isBuild
+    ? null
+    : await prisma.settings.findUnique({
+        where: { userId: session?.user.id }
+      });
 
   return (
     <div className="space-y-6">
