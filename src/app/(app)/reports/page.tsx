@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getAuthOptions } from '@/lib/auth';
 import { getPrisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -8,8 +8,8 @@ export const fetchCache = 'force-no-store';
 
 export default async function ReportsPage() {
   const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
-  const session = isBuild ? null : await getServerSession(authOptions);
   const prisma = await getPrisma();
+  const session = isBuild ? null : await getServerSession(await getAuthOptions(prisma ?? undefined));
   const reports =
     isBuild || !prisma
       ? []

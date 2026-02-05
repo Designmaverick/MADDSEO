@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { randomBytes } from 'crypto';
-import { authOptions } from '@/lib/auth';
+import { getAuthOptions } from '@/lib/auth';
 import { getPrisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +20,7 @@ export async function GET() {
   if (!prisma) {
     return NextResponse.json({ error: 'Build phase.' }, { status: 503 });
   }
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(await getAuthOptions(prisma));
   if (!session?.user || session.user.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   if (!prisma) {
     return NextResponse.json({ error: 'Build phase.' }, { status: 503 });
   }
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(await getAuthOptions(prisma));
   if (!session?.user || session.user.role !== 'SUPER_ADMIN') {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }

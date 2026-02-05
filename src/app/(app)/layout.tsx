@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { authOptions } from '@/lib/auth';
+import { getAuthOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,7 +19,7 @@ const navItems = [
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
-  const session = isBuild ? null : await getServerSession(authOptions);
+  const session = isBuild ? null : await getServerSession(await getAuthOptions());
   if (!session?.user && !isBuild) {
     redirect('/sign-in');
   }
