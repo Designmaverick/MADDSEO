@@ -14,3 +14,11 @@ declare module 'next-auth' {
     };
   }
 }
+
+declare module 'next-auth/adapters' {
+  interface AdapterUser {
+    role: Role;
+    isPro: boolean;
+    status: UserStatus;
+  }
+}
