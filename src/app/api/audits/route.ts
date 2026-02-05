@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const createSchema = z.object({
   name: z.string().min(2).max(120),
   domain: z.string().min(3).max(190)
