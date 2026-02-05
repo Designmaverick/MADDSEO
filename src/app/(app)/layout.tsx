@@ -3,6 +3,9 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const navItems = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/audits/new', label: 'New Audit' },
