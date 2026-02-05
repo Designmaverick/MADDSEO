@@ -4,7 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 
 export default async function HomePage() {
-  const session = await getServerSession(authOptions);
+  const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+  const session = isBuild ? null : await getServerSession(authOptions);
   if (session?.user) {
     redirect('/dashboard');
   }
