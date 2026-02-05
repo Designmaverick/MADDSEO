@@ -47,22 +47,53 @@ export async function getAuthOptions(existingPrisma?: PrismaClient): Promise<Nex
           const ok = await verifyPassword(password, user.passwordHash);
           if (!ok) return null;
 
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            image: user.image
-          };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          role: user.role,
+          isPro: user.isPro,
+          status: user.status
+        };
         }
       })
     ],
     session: {
-      strategy: 'database'
+      strategy: 'jwt'
     },
     pages: {
       signIn: '/sign-in'
     },
     callbacks: {
+      async jwt({ token, user }) {
+        if (user) {
+          const typedUser = user as typeof user & {
+            role?: string;
+            isPro?: boolean;
+            status?: string;
+          };
+          if (typedUser.role) {
+            token.id = user.id;
+            token.role = typedUser.role as any;
+            token.isPro = Boolean(typedUser.isPro);
+            token.status = typedUser.status as any;
+          } else if (user.email) {
+            const dbUser = await prisma.user.findUnique({
+              where: { email: user.email }
+            });
+            if (dbUser) {
+              token.id = dbUser.id;
+              token.role = dbUser.role;
+              token.isPro = dbUser.isPro;
+              token.status = dbUser.status;
+            } else {
+              token.id = user.id;
+            }
+          }
+        }
+        return token;
+      },
       async signIn({ user }) {
         if (!user?.email) return false;
         const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
@@ -73,16 +104,15 @@ export async function getAuthOptions(existingPrisma?: PrismaClient): Promise<Nex
         }
         return true;
       },
-      async session({ session, user }) {
-        if (session.user && user) {
-          session.user.id = user.id;
-          session.user.role = user.role;
-          session.user.isPro = user.isPro;
-          session.user.status = user.status;
+      async session({ session, token }) {
+        if (session.user) {
+          session.user.id = (token.id as string) ?? '';
+          session.user.role = (token.role as any) ?? 'USER';
+          session.user.isPro = Boolean(token.isPro);
+          session.user.status = (token.status as any) ?? 'ACTIVE';
         }
         return session;
       }
     }
   };
 }
-

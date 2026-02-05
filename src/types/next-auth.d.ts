@@ -22,3 +22,12 @@ declare module 'next-auth/adapters' {
     status: UserStatus;
   }
 }
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    id?: string;
+    role?: Role;
+    isPro?: boolean;
+    status?: UserStatus;
+  }
+}
