@@ -2,12 +2,13 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { getAuthOptions } from '@/lib/auth';
 import { getPrisma } from '@/lib/db';
+import HistoryClient from './HistoryClient';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const fetchCache = 'force-no-store';
 
-export default async function TechnicalIndexPage() {
+export default async function HistoryPage() {
   const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
   const prisma = await getPrisma();
   const session = isBuild ? null : await getServerSession(await getAuthOptions(prisma ?? undefined));
@@ -17,7 +18,7 @@ export default async function TechnicalIndexPage() {
   if (isBuild || !prisma) {
     return (
       <div className="card p-6 text-sm text-slate-500">
-        Technical issues will be available after deployment finishes.
+        History will be available after deployment finishes.
       </div>
     );
   }
@@ -26,24 +27,33 @@ export default async function TechnicalIndexPage() {
   if (!userId) {
     return (
       <div className="card p-6 text-sm text-slate-500">
-        Technical issues will be available after deployment finishes.
+        History will be available after deployment finishes.
       </div>
     );
   }
 
-  const audit = await prisma.audit.findFirst({
+  const audits = await prisma.audit.findMany({
     where: { runnerId: userId },
+    include: { project: true },
     orderBy: { createdAt: 'desc' },
-    select: { id: true }
+    take: 200
   });
 
-  if (!audit) {
-    return (
-      <div className="card p-6 text-sm text-slate-500">
-        No audits yet. Start a new audit to view technical issues.
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-semibold">History</h1>
+        <p className="text-slate-500">Audit timeline with quick comparisons.</p>
       </div>
-    );
-  }
-
-  redirect(`/technical/${audit.id}`);
+      <HistoryClient
+        audits={audits.map((audit) => ({
+          id: audit.id,
+          domain: audit.project.domain,
+          status: audit.status,
+          scoreOverall: audit.scoreOverall,
+          createdAt: audit.createdAt.toISOString()
+        }))}
+      />
+    </div>
+  );
 }

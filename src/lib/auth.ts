@@ -67,6 +67,7 @@ export async function getAuthOptions(existingPrisma?: PrismaClient): Promise<Nex
     },
     callbacks: {
       async jwt({ token, user }) {
+        const now = Date.now();
         if (user) {
           const typedUser = user as typeof user & {
             role?: string;
@@ -91,6 +92,17 @@ export async function getAuthOptions(existingPrisma?: PrismaClient): Promise<Nex
               token.id = user.id;
             }
           }
+          token.lastSync = now;
+        } else if (token.id && (!token.lastSync || now - Number(token.lastSync) > 5 * 60 * 1000)) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: String(token.id) }
+          });
+          if (dbUser) {
+            token.role = dbUser.role;
+            token.isPro = dbUser.isPro;
+            token.status = dbUser.status;
+          }
+          token.lastSync = now;
         }
         return token;
       },

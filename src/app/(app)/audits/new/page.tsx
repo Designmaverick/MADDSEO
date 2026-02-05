@@ -1,78 +1,45 @@
-'use client';
-
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
+import { getAuthOptions } from '@/lib/auth';
+import { getPrisma } from '@/lib/db';
+import NewAuditClient from './NewAuditClient';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const fetchCache = 'force-no-store';
 
-export default function NewAuditPage() {
-  const router = useRouter();
-  const [name, setName] = useState('');
-  const [domain, setDomain] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const res = await fetch('/api/audits', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, domain })
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || 'Unable to create audit.');
-      setLoading(false);
-      return;
-    }
-
-    router.push('/audits');
+export default async function NewAuditPage() {
+  const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+  const prisma = await getPrisma();
+  const session = isBuild ? null : await getServerSession(await getAuthOptions(prisma ?? undefined));
+  if (!session?.user && !isBuild) {
+    redirect('/sign-in');
   }
 
+  const projects =
+    isBuild || !prisma
+      ? []
+      : await prisma.project.findMany({
+          where: { ownerId: session?.user.id },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, name: true, domain: true }
+        });
+
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const auditsThisWeek =
+    isBuild || !prisma
+      ? 0
+      : await prisma.audit.count({
+          where: { runnerId: session?.user.id, createdAt: { gte: weekAgo } }
+        });
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">New Audit</h1>
-        <p className="text-slate-500">Start a fresh crawl and PageSpeed scan.</p>
-      </div>
-
-      {error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</div>
-      )}
-
-      <form onSubmit={handleSubmit} className="card p-6 space-y-4 max-w-xl">
-        <label className="block text-sm">
-          Project name
-          <input
-            className="input mt-1"
-            type="text"
-            placeholder="Client domain name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </label>
-        <label className="block text-sm">
-          Domain
-          <input
-            className="input mt-1"
-            type="text"
-            placeholder="example.com"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            required
-          />
-        </label>
-        <button type="submit" className="button" disabled={loading}>
-          {loading ? 'Creating audit...' : 'Create audit'}
-        </button>
-      </form>
-    </div>
+    <NewAuditClient
+      projects={projects}
+      isPro={Boolean(session?.user.isPro)}
+      auditsThisWeek={auditsThisWeek}
+      projectCount={projects.length}
+    />
   );
 }

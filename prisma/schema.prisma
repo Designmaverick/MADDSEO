@@ -58,6 +58,12 @@ enum ReportStatus {
   FAILED
 }
 
+enum ProjectVerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -88,6 +94,10 @@ model Project {
   owner     User     @relation(fields: [ownerId], references: [id])
   name      String
   domain    String
+  isActive  Boolean  @default(true)
+  verificationStatus ProjectVerificationStatus @default(PENDING)
+  verifiedAt DateTime?
+  verificationError String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -105,6 +115,7 @@ model Audit {
   status          AuditStatus @default(PENDING)
   planAtRun       PlanType    @default(FREE)
   planLimitPages  Int?
+  crawlDepth      Int         @default(2)
   engineVersion   String      @default("v1")
   startedAt       DateTime?
   completedAt     DateTime?
@@ -113,6 +124,11 @@ model Audit {
   scoreOnPage     Int?
   scoreOffPage    Int?
   scorePerformance Int?
+  progressCrawl   Int         @default(0)
+  progressPerformance Int     @default(0)
+  progressAnalysis Int        @default(0)
+  progressReport  Int         @default(0)
+  lastError       String?
   pagesCrawled    Int         @default(0)
   issuesFound     Int         @default(0)
   createdAt       DateTime    @default(now())
@@ -202,6 +218,15 @@ model Settings {
   companyUrl         String?
   logoUrl            String?
   whiteLabelDefault  Boolean @default(false)
+  brandPrimaryColor  String?
+  brandSecondaryColor String?
+  notificationAuditComplete Boolean @default(true)
+  notificationWeeklyDigest  Boolean @default(false)
+  notificationMarketing     Boolean @default(false)
+  apiKeyHash         String?
+  apiKeyLastFour     String?
+  apiKeyCreatedAt    DateTime?
+  updatedAt          DateTime @updatedAt
 }
 
 model SystemSettings {

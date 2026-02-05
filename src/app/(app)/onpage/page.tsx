@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const fetchCache = 'force-no-store';
 
-export default async function TechnicalIndexPage() {
+export default async function OnPageIndexPage() {
   const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
   const prisma = await getPrisma();
   const session = isBuild ? null : await getServerSession(await getAuthOptions(prisma ?? undefined));
@@ -17,7 +17,7 @@ export default async function TechnicalIndexPage() {
   if (isBuild || !prisma) {
     return (
       <div className="card p-6 text-sm text-slate-500">
-        Technical issues will be available after deployment finishes.
+        On-page issues will be available after deployment finishes.
       </div>
     );
   }
@@ -26,7 +26,7 @@ export default async function TechnicalIndexPage() {
   if (!userId) {
     return (
       <div className="card p-6 text-sm text-slate-500">
-        Technical issues will be available after deployment finishes.
+        On-page issues will be available after deployment finishes.
       </div>
     );
   }
@@ -40,10 +40,10 @@ export default async function TechnicalIndexPage() {
   if (!audit) {
     return (
       <div className="card p-6 text-sm text-slate-500">
-        No audits yet. Start a new audit to view technical issues.
+        No audits yet. Start a new audit to view on-page issues.
       </div>
     );
   }
 
-  redirect(`/technical/${audit.id}`);
+  redirect(`/onpage/${audit.id}`);
 }

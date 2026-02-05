@@ -7,10 +7,19 @@ import { getPrisma } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const createSchema = z.object({
-  name: z.string().min(2).max(120),
-  domain: z.string().min(3).max(190)
-});
+const createSchema = z
+  .object({
+    projectId: z.string().cuid().optional(),
+    projectName: z.string().min(2).max(120).optional(),
+    domain: z.string().min(3).max(190).optional(),
+    depth: z.number().int().min(1).max(3).optional()
+  })
+  .refine((data) => data.projectId || (data.projectName && data.domain), {
+    message: 'Project or domain required.'
+  });
+
+const freeLimits = { maxProjects: 1, maxAuditsPerWeek: 1, maxPages: 10, maxConcurrent: 1, maxDepth: 2 };
+const proLimits = { maxProjects: Infinity, maxAuditsPerWeek: Infinity, maxPages: 100, maxConcurrent: 3, maxDepth: 3 };
 
 function normalizeDomain(input: string) {
   const trimmed = input.trim();
@@ -60,20 +69,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid payload.' }, { status: 400 });
   }
 
-  const { name, domain } = parsed.data;
-  let normalized;
-  try {
-    normalized = normalizeDomain(domain);
-  } catch {
-    return NextResponse.json({ error: 'Invalid domain.' }, { status: 400 });
-  }
+  const limits = session.user.isPro ? proLimits : freeLimits;
+  const depth = Math.min(parsed.data.depth ?? limits.maxDepth, limits.maxDepth);
 
   if (!session.user.isPro) {
     const projectCount = await prisma.project.count({ where: { ownerId: session.user.id } });
-    const existingProject = await prisma.project.findFirst({
-      where: { ownerId: session.user.id, domain: normalized.domain }
-    });
-    if (!existingProject && projectCount >= 1) {
+    if (!parsed.data.projectId && projectCount >= limits.maxProjects) {
       return NextResponse.json({ error: 'Free plan allows only 1 domain.' }, { status: 403 });
     }
 
@@ -82,40 +83,73 @@ export async function POST(req: Request) {
     const weeklyAudits = await prisma.audit.count({
       where: { runnerId: session.user.id, createdAt: { gte: weekAgo } }
     });
-    if (weeklyAudits >= 1) {
+    if (weeklyAudits >= limits.maxAuditsPerWeek) {
       return NextResponse.json({ error: 'Free plan allows 1 audit per week.' }, { status: 403 });
     }
   }
 
-  const project = await prisma.project.upsert({
-    where: {
-      ownerId_domain: {
-        ownerId: session.user.id,
-        domain: normalized.domain
-      }
-    },
-    update: {
-      name
-    },
-    create: {
-      ownerId: session.user.id,
-      name,
-      domain: normalized.domain
-    }
+  const concurrentAudits = await prisma.audit.count({
+    where: { runnerId: session.user.id, status: { in: ['PENDING', 'RUNNING'] } }
   });
+  if (concurrentAudits >= limits.maxConcurrent) {
+    return NextResponse.json({ error: 'Too many audits running. Please wait.' }, { status: 429 });
+  }
+
+  const lastAudit = await prisma.audit.findFirst({
+    where: { runnerId: session.user.id },
+    orderBy: { createdAt: 'desc' },
+    select: { createdAt: true }
+  });
+  if (lastAudit && Date.now() - lastAudit.createdAt.getTime() < 60_000) {
+    return NextResponse.json({ error: 'Please wait a minute before starting another audit.' }, { status: 429 });
+  }
+
+  let projectId = parsed.data.projectId;
+  if (!projectId) {
+    let normalized;
+    try {
+      normalized = normalizeDomain(parsed.data.domain ?? '');
+    } catch {
+      return NextResponse.json({ error: 'Invalid domain.' }, { status: 400 });
+    }
+
+    const existingProject = await prisma.project.findFirst({
+      where: { ownerId: session.user.id, domain: normalized.domain }
+    });
+    if (existingProject) {
+      projectId = existingProject.id;
+    } else {
+      const project = await prisma.project.create({
+        data: {
+          ownerId: session.user.id,
+          name: parsed.data.projectName ?? normalized.domain,
+          domain: normalized.domain
+        }
+      });
+      projectId = project.id;
+    }
+  } else {
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, ownerId: session.user.id }
+    });
+    if (!project) {
+      return NextResponse.json({ error: 'Project not found.' }, { status: 404 });
+    }
+  }
 
   const audit = await prisma.audit.create({
     data: {
-      projectId: project.id,
+      projectId,
       runnerId: session.user.id,
       status: 'PENDING',
       planAtRun: session.user.isPro ? 'PRO' : 'FREE',
-      planLimitPages: session.user.isPro ? 100 : 10
+      planLimitPages: limits.maxPages,
+      crawlDepth: depth
     }
   });
 
   return NextResponse.json({
     id: audit.id,
-    projectId: project.id
+    projectId
   });
 }

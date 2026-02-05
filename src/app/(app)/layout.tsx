@@ -2,18 +2,22 @@ import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getAuthOptions } from '@/lib/auth';
+import SignOutButton from '@/app/(app)/SignOutButton';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const navItems = [
+const baseNavItems = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/audits/new', label: 'New Audit' },
+  { href: '/projects', label: 'Projects' },
   { href: '/audits', label: 'Site Audits' },
-  { href: '/on-page', label: 'On-Page' },
+  { href: '/overview', label: 'Overview' },
+  { href: '/onpage', label: 'On-Page' },
   { href: '/technical', label: 'Technical' },
-  { href: '/off-page', label: 'Off-Page' },
+  { href: '/offpage', label: 'Off-Page' },
   { href: '/reports', label: 'Reports' },
+  { href: '/history', label: 'History' },
   { href: '/settings', label: 'Settings' }
 ];
 
@@ -23,7 +27,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session?.user && !isBuild) {
     redirect('/sign-in');
   }
+  if (session?.user?.status === 'DISABLED') {
+    redirect('/sign-in');
+  }
   const user = session?.user;
+  const navItems = [
+    ...(user?.role === 'SUPER_ADMIN' ? [{ href: '/admin', label: 'Admin' }] : []),
+    ...baseNavItems,
+    ...(!user?.isPro ? [{ href: '/upgrade', label: 'Upgrade' }] : [])
+  ];
 
   return (
     <div className="min-h-screen grid lg:grid-cols-[260px_1fr]">
@@ -43,6 +55,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
         </nav>
+        <div className="mt-6">
+          <SignOutButton className="w-full px-3 py-2 rounded-xl border border-white/10 text-sm" label="Logout" />
+        </div>
       </aside>
       <main className="px-6 py-8">{children}</main>
     </div>

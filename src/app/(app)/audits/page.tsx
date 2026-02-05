@@ -46,6 +46,14 @@ export default async function AuditsPage() {
               <div className="text-sm text-slate-500">
                 Issues: {audit.issuesFound} | Pages: {audit.pagesCrawled}
               </div>
+              <div className="flex gap-2 text-sm">
+                <Link href={`/audits/${audit.id}`} className="px-3 py-1 rounded-lg border border-white/10">
+                  View status
+                </Link>
+                <Link href={`/overview/${audit.id}`} className="px-3 py-1 rounded-lg border border-white/10">
+                  Overview
+                </Link>
+              </div>
             </div>
           ))}
         </div>

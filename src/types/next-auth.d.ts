@@ -29,5 +29,6 @@ declare module 'next-auth/jwt' {
     role?: Role;
     isPro?: boolean;
     status?: UserStatus;
+    lastSync?: number;
   }
 }
