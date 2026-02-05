@@ -1,10 +1,13 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getAuthOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-async function handler(req: Request) {
+type RouteContext = { params: { nextauth: string[] } };
+
+async function handler(req: NextRequest, ctx: RouteContext) {
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     return NextResponse.json({ error: 'Build phase.' }, { status: 503 });
   }
@@ -12,7 +15,7 @@ async function handler(req: Request) {
   const NextAuth = (await import('next-auth')).default;
   const authOptions = await getAuthOptions();
   const nextAuthHandler = NextAuth(authOptions);
-  return nextAuthHandler(req as any);
+  return nextAuthHandler(req, ctx as any);
 }
 
 export { handler as GET, handler as POST };
